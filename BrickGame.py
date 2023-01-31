@@ -1,7 +1,7 @@
 
 '''
 TODO:
-    Scale to window size
+    #Scale to window size
     #Animate paddle selection circle
     #Implement pre-launch state (added just a delay instead)
     #Upgrade pre-launch state (timer)
@@ -35,12 +35,13 @@ TODO:
         Life counter hearts
 '''
 
-import sys
 import math
-import random
-import pygame
-import time
 import os
+import random
+import time
+
+import pygame
+
 os.system('cls' if os.name == 'nt' else 'clear')
 print('')
 
@@ -55,9 +56,9 @@ win = pygame.display.set_mode((WINX, WINY), 0, 32)
 pygame.display.set_caption('TEST')
 FPSCLOCK = pygame.time.Clock()
 
-basic_font_12 = pygame.font.SysFont('arial', 12)
-basic_font_18 = pygame.font.SysFont('arial', 18)
-title_font = pygame.font.SysFont('bradleyhanditc', 72)
+basic_font_12 = pygame.font.SysFont('arial', int(WINY/20))
+basic_font_18 = pygame.font.SysFont('arial', int(WINY/10))
+title_font = pygame.font.SysFont('bradleyhanditc', int(WINY/3))
 
 BLACK = (0, 0, 0)
 VDGREY = (20, 20, 20)
@@ -78,7 +79,7 @@ MAGENTA = (204, 0, 204)
 
 class Paddle(object):
     
-    STARTING_WIDTH = 50
+    STARTING_WIDTH = int(WINX/6)
     PADDLE_COLORS = [RED,
                      ORANGE,
                      GREEN,
@@ -89,23 +90,23 @@ class Paddle(object):
     def __init__(self, x, y):
         self.x = x
         self.y = y
-        self.speed = 1
+        self.speed = WINX/320
         self.accel = 1.3
         self.width = Paddle.STARTING_WIDTH
         self.thickness = self.width/5
         self.color = 0
-        self.ellipse_x = 120
-        self.ellipse_y = 20
-        self.ammo = 0
-        self.gun_inset = 2
-        self.gun_width = 4
+        self.ellipse_x = int(WINX/2.5)
+        self.ellipse_y = int(WINY/12)
+        self.ammo = 5
+        self.gun_inset = int(self.width/25)
+        self.gun_width = int(self.width/12)
         
     def render(self):
         pygame.draw.rect(win, self.PADDLE_COLORS[self.color], [self.x, self.y, self.width, self.thickness])
     
     def render_guns(self):
         if self.ammo > 0:            
-            gun_height = 8
+            gun_height = int(self.thickness*0.8)
             pygame.draw.rect(win, MGREY, [self.x + self.gun_inset, self.y + (self.thickness - gun_height), self.gun_width, gun_height])
             pygame.draw.rect(win, DGREY, [self.x + self.gun_inset + (self.gun_width/2 - 1), self.y, self.gun_width/2, gun_height + 2])
             pygame.draw.rect(win, MGREY, [self.x + self.width - self.gun_inset - self.gun_width, self.y + (self.thickness - gun_height), self.gun_width, gun_height])
@@ -127,15 +128,17 @@ class Paddle(object):
         else:
             return None
     
-    def update_circle(self, selected_x, selected_y, qty, index, offset, max_offset):
+    def update_paddle_select_circle(self, selected_paddle_x, selected_paddle_y, qty, index, offset, max_frame_offset):
         circle_interval = 2 * math.pi/qty
-        self.width = Paddle.STARTING_WIDTH/2 * (1.5 + math.sin(((index + offset/max_offset) * circle_interval) + math.pi/2)/2)
+        self.width = Paddle.STARTING_WIDTH/2 * (1.5 + math.sin(((index + offset/max_frame_offset) * circle_interval) + math.pi/2)/2)
         self.thickness = self.width/5
-        self.x = selected_x + self.ellipse_x * math.sin((index + offset/max_offset) * circle_interval) + (Paddle.STARTING_WIDTH - self.width)/2
-        self.y = selected_y + self.ellipse_y - self.ellipse_y * math.cos((index + offset/max_offset) * circle_interval)
+        self.x = selected_paddle_x + self.ellipse_x * math.sin((index + offset/max_frame_offset) * circle_interval) + (Paddle.STARTING_WIDTH - self.width)/2
+        self.y = selected_paddle_y + self.ellipse_y - self.ellipse_y * math.cos((index + offset/max_frame_offset) * circle_interval)
     
     def size_change(self, change):
-        if 20 < self.width + change < 100:
+        min_paddle_size = WINX/16
+        max_paddle_size = WINX/3
+        if min_paddle_size < self.width + change < max_paddle_size:
             self.width += change
             self.x -= change/2
 
@@ -145,8 +148,8 @@ class Bullet(object):
     def __init__(self, x, y):
         self.x = x
         self.y = y
-        self.speed = 3
-        self.length = 6
+        self.speed = WINY/80
+        self.length = int(WINY/40)
     
     def render(self):
         pygame.draw.line(win, BLACK, (int(self.x), int(self.y)), (int(self.x), int(self.y - self.length)), 2)
@@ -166,12 +169,12 @@ class Ball(object):
     def __init__(self, x, y):
         self.x = x
         self.y = y
-        self.speed = 2
+        self.speed = WINX/160
         self.angle = math.pi*7/4
         self.last_angle = self.angle
         self.dx = self.speed*math.cos(self.angle)
         self.dy = self.speed*math.sin(self.angle)
-        self.radius = 4
+        self.radius = int(WINX/80)
         self.color = BLACK
         self.noclipping = False
         self.splashdmg = False
@@ -229,7 +232,7 @@ class Ball(object):
                 self.y = paddle.y - self.radius - 1
                 MIN_BOUNCE_ANGLE = 0.4
                 paddle_hit_location = 2 * (self.x - (paddle.x + paddle.width/2))/(paddle.width)
-                self.update_angle(-3.14/2 + (3.14/2 - MIN_BOUNCE_ANGLE) * paddle_hit_location)
+                self.update_angle(-3.14/2 + (3.14/2 - MIN_BOUNCE_ANGLE) * paddle_hit_location)  ## Why is this not math.pi()?
                 # Reset NoClip item powerup
                 self.noclipping = False
     
@@ -263,18 +266,18 @@ class Splash(object):
         self.x = x
         self.y = y
         self.angle = angle
-        self.speed = 1
+        self.speed = WINX/320
         self.dx = self.speed*math.cos(self.angle)
         self.dy = self.speed*math.sin(self.angle)
-        self.radius = 3
-        self.remaining = 30
+        self.radius = int(WINX/100)
+        self.remaining_movement = int(WINX/10)
     
     def render(self):
         pygame.draw.circle(win, Block.MODIFIERS["splashdmg"], [int(self.x), int(self.y)], self.radius)
     
     def move(self):
-        self.remaining -= 1
-        if self.remaining < 0:
+        self.remaining_movement -= 1
+        if self.remaining_movement < 0:
             return False
         self.x = self.x + self.dx
         self.y = self.y + self.dy
@@ -304,13 +307,13 @@ class Block(object):
                  "extralife": ORANGE,
                  "bullets": MAGENTA,
                  "splashdmg": BLUEGREY}
-    BORDER = 2
+    BORDER = int(WINX/160)
               
     def __init__(self, x, y, hp, color_index):
         self.x = x
         self.y = y
-        self.width = 40
-        self.thickness = 10
+        self.width = int(WINX/8)
+        self.thickness = int(WINX/32)
         self.hp = max(hp, 0)
         self.color = [max((value - 80*self.hp),0) for value in self.block_color]
         #self.color_index = color_index + len(Paddle.PADDLE_COLORS)/2 + self.hp
@@ -348,8 +351,8 @@ class ItemDrop(object):
         self.x = x
         self.y = y
         self.dx = random.random()/4
-        self.dy = 1
-        self.radius = 7
+        self.dy = int(WINY/240)
+        self.radius = int(WINY/35)
         self.modifier = item[0]
         self.color = item[1]
         
@@ -404,7 +407,7 @@ def generate_map(paddle_color):
                 continue
             elif make_holes == "Even" and col % 2 == 0:
                 continue
-            block_row.append(Block(50+(col*45), 20+(row*15), hp, paddle_color))
+            block_row.append(Block(int(WINX*10/64+(col*WINX*9/64)), int(WINX*4/64+(row*WINX*3/64)), hp, paddle_color))
         block_list.append(block_row)
     return block_list
 
@@ -441,18 +444,18 @@ class TitleState(State):
     def __init__(self, high_scores):
         self.high_scores = high_scores
         
-        self.selected_x = WINX/2 - 20
-        self.selected_y = WINY - 60
+        self.selected_paddle_x = WINX/2 - int(WINX/16)
+        self.selected_paddle_y = WINY - int(WINY/4)
         self.offset = 0
-        self.max_offset = 30.
-        self.paddle_list = [Paddle(self.selected_x, self.selected_y),]
+        self.max_frame_offset = 30.
+        self.paddle_list = [Paddle(self.selected_paddle_x, self.selected_paddle_y),]
         self.color_choices = self.paddle_list[0].PADDLE_COLORS
         self.interval = len(self.color_choices)
-        for index,color in enumerate(self.color_choices[1:], start=1):
+        for index in enumerate(self.color_choices[1:], start=1):
             self.paddle_list.append(Paddle(0,0))
         for index,paddle in enumerate(self.paddle_list):
             paddle.color = index
-            paddle.update_circle(self.selected_x, self.selected_y, self.interval, index, 0, self.max_offset)
+            paddle.update_paddle_select_circle(self.selected_paddle_x, self.selected_paddle_y, self.interval, index, 0, self.max_frame_offset)
         
         self.paddle_selection = 0
         self.last_keys = time.time()
@@ -475,22 +478,22 @@ class TitleState(State):
         
         # Paddle set
         for index,paddle in enumerate(self.paddle_list):
-            paddle.update_circle(self.selected_x, self.selected_y, self.interval, index, self.offset, self.max_offset)
-        if self.offset >= self.max_offset or self.offset <= -self.max_offset:
+            paddle.update_paddle_select_circle(self.selected_paddle_x, self.selected_paddle_y, self.interval, index, self.offset, self.max_frame_offset)
+        if self.offset >= self.max_frame_offset or self.offset <= -self.max_frame_offset:
             self.offset = 0
-            if self.last_left_state == True:
-                self.last_left_state = False
-                self.paddle_list.insert(0, self.paddle_list.pop(len(self.paddle_list)-1))
             if self.last_right_state == True:
                 self.last_right_state = False
+                self.paddle_list.insert(0, self.paddle_list.pop(len(self.paddle_list)-1))
+            if self.last_left_state == True:
+                self.last_left_state = False
                 self.paddle_list.append(self.paddle_list.pop(0))
         
         # Key actions & timers
         if time.time() < self.last_keys + 0.5:
             if self.last_left_state == True:
-                self.offset += 1
-            elif self.last_right_state == True:
                 self.offset -= 1
+            elif self.last_right_state == True:
+                self.offset += 1
         if time.time() > self.last_keys + 0.1:
             self.last_keys = time.time()
             if keys[pygame.K_LEFT]:
@@ -519,17 +522,17 @@ class TitleState(State):
             paddle.render()
             
         # Arrows
-        pygame.draw.polygon(win, BLACK, ((self.selected_x - 10, self.selected_y - self.left_arrow_enlarge),
-                                         (self.selected_x - 10, self.selected_y + 8 + self.left_arrow_enlarge),
-                                         (self.selected_x - 14 - self.left_arrow_enlarge, self.selected_y + 4)))
-        pygame.draw.polygon(win, BLACK, ((self.selected_x + Paddle.STARTING_WIDTH + 10, self.selected_y - self.right_arrow_enlarge),
-                                         (self.selected_x + Paddle.STARTING_WIDTH + 10, self.selected_y + 8 + self.right_arrow_enlarge),
-                                         (self.selected_x + Paddle.STARTING_WIDTH + 14 + self.right_arrow_enlarge, self.selected_y + 4)))
+        pygame.draw.polygon(win, BLACK, ((self.selected_paddle_x - int(WINX/32), self.selected_paddle_y - self.left_arrow_enlarge),
+                                         (self.selected_paddle_x - int(WINX/32), self.selected_paddle_y + int(WINY/30) + self.left_arrow_enlarge),
+                                         (self.selected_paddle_x - int(WINX/22) - self.left_arrow_enlarge, self.selected_paddle_y + int(WINY/60))))
+        pygame.draw.polygon(win, BLACK, ((self.selected_paddle_x + Paddle.STARTING_WIDTH + int(WINX/32), self.selected_paddle_y - self.right_arrow_enlarge),
+                                         (self.selected_paddle_x + Paddle.STARTING_WIDTH + int(WINX/32), self.selected_paddle_y + int(WINY/30) + self.right_arrow_enlarge),
+                                         (self.selected_paddle_x + Paddle.STARTING_WIDTH + int(WINX/22) + self.right_arrow_enlarge, self.selected_paddle_y + int(WINY/60))))
         
         # Title
         title_surface = title_font.render("Title", True, BLACK)
         title_rect = title_surface.get_rect()
-        title_rect = title_surface.get_rect(center=(WINX/2, WINY/2 - 40))
+        title_rect = title_surface.get_rect(center=(int(WINX/2), int(WINY/2 - WINY/6)))
         win.blit(title_surface, title_rect)
         
     def end(self, events):
@@ -541,7 +544,7 @@ class TitleState(State):
         
 class PlayState(State):
     def __init__(self, paddle, high_scores):
-        self.ball_list = [Ball(WINX/2, WINY-40)]
+        self.ball_list = [Ball(int(WINX/2), int(WINY-WINY/6))]
         self.block_list = generate_map(paddle.color)
         self.item_list = []
         self.bullet_list = []
@@ -550,8 +553,8 @@ class PlayState(State):
         self.paddle = paddle
         self.paddle.width = Paddle.STARTING_WIDTH
         self.paddle.thickness = self.paddle.width/4
-        self.paddle.x = WINX/2 - 20
-        self.paddle.y = WINY - 20
+        self.paddle.x = WINX/2 - int(WINX/16)
+        self.paddle.y = WINY - int(WINY/12)
         
         self.last_direction = ""
         start_time = time.time()
@@ -604,14 +607,14 @@ class PlayState(State):
             if check_item_collect != None:
                 if check_item_collect == "paddleup":
                     self.score += 20
-                    self.paddle.size_change(10)
+                    self.paddle.size_change(int(WINY/24))
                 elif check_item_collect == "paddledown":
                     self.score -= 20
                     if self.paddle.width >= 30:
-                        self.paddle.size_change(-10)
+                        self.paddle.size_change(int(-WINY/24))
                 elif check_item_collect == "multiball":
                     self.score += 20
-                    self.ball_list.append(Ball(WINX/2, WINY-40))
+                    self.ball_list.append(Ball(WINX/2, int(WINY-WINY/6)))
                 elif check_item_collect == "noclipping":
                     self.score += 20
                     for ball in self.ball_list:
@@ -704,10 +707,10 @@ class PlayState(State):
         self.paddle.render_guns()
         
         # Bullets
-        bullet_height = 7
-        bullet_width = 2
+        bullet_height = int(WINY/35)
+        bullet_width = int(WINX/160)
         for bullet in range(self.paddle.ammo):
-            pygame.draw.rect(win, BLACK, [10 + bullet * 6, 5, bullet_width, bullet_height])
+            pygame.draw.rect(win, BLACK, [int(10 + bullet * WINX/50), 5, bullet_width, bullet_height])
         
         # Score
         score_surface = basic_font_12.render("Score: " + str(self.score), False, BLACK)
@@ -716,9 +719,9 @@ class PlayState(State):
         win.blit(score_surface, score_rect)
         
         # Lives
-        heart_x = 20
-        heart_y = 24
-        heart_width = 16
+        heart_x = int(WINX/16)
+        heart_y = int(WINY/10)
+        heart_width = int(WINX/20)
         for life in range(self.lives):
             draw_heart(heart_x + life * (heart_width + heart_width/2), heart_y, heart_width)
         
@@ -787,17 +790,18 @@ class EndState(State):
         win.fill(WHITE)
         
         # Current score
-        x_pos = WINX/2
+        x_pos = int(WINX/2)
+        y_pos = int(WINY/12)
         score_surface = basic_font_18.render(str(self.score), False, BLACK)
         score_rect = score_surface.get_rect()
-        score_rect.topright = (x_pos, 20)
+        score_rect.topright = (x_pos, y_pos)
         win.blit(score_surface, score_rect)
         
         # High score table
         for index,high_score in enumerate(self.high_scores):
             high_score_surface = basic_font_18.render(str(high_score), False, BLUE)
             high_score_rect = high_score_surface.get_rect()
-            high_score_rect.topright = (x_pos, 80+(index*24))
+            high_score_rect.topright = (x_pos, int(WINY/3+index*int(WINY/10)))
             win.blit(high_score_surface, high_score_rect)
             
     def end(self, events):
